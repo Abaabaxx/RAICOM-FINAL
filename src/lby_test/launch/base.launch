@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+
+<launch>
+    <!-- 基础节点-->
+    <!-- TF树 -->
+    <include file="$(find tianracer_description)/launch/tianracer_tf.launch" />
+    
+    <!-- 手柄控制 -->
+    <include file="$(find tianracer_teleop)/launch/joystick_teleop.launch" />
+
+    <!-- 激光雷达 -->
+    <include file="$(find tianracer_bringup)/launch/lidar.launch" />
+
+    <!-- 底盘驱动 -->
+    <include file="$(find tianracer_core)/launch/tianracer_core.launch" />
+</launch>
