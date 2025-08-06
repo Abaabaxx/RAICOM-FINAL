@@ -11,8 +11,8 @@
     <arg name="depth_points_topic" default="camera/depth_registered/points" />
     <arg name="lidar_points_topic" default="lidar_points" /> 
 
-    <!--地图文件路径-->>
-    <arg name="map_name" default="tianbotoffice_602"/>
+    <!--地图文件路径-->
+    <arg name="map_name" default="tianbot_office"/>
     <arg name="map_path" default="/home/tianbot/tianbot_ws/src/lby_test/config/map"/>
 
     <!-- 启动 map_server 节点 -->
