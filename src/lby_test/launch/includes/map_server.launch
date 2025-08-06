@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="map_name" default="tianbotoffice_602"/>
+    <arg name="map_path" default="/home/tianbot/tianbot_ws/src/lby_test/config/map"/>
+    <arg name="frame_id" default="map"/>
+
+    <!-- 启动 map_server 节点 -->
+    <node name="map_server" pkg="map_server" type="map_server" respawn="true"
+          args="$(arg map_path)/$(arg map_name).yaml">
+        <param name="frame_id" value="$(arg frame_id)"/>
+    </node>
+
+</launch>
