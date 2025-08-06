@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+
+<launch>
+    <!--该底盘驱动启动了底层的电机、轮式编码器、IMU 以及拓展卡尔曼EKF节点 -->
+    <!--发布了一个经过EKF滤波的高质量的odom->base_footprint的TF坐标变换-->
+    <!-- 底盘驱动 -->
+    <include file="$(find tianracer_core)/launch/tianracer_core.launch" />
+</launch>
