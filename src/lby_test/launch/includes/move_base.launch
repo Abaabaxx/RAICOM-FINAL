@@ -18,15 +18,35 @@
     <group ns="$(arg robot_name)">
         <!--  Navigation -->
         <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+
+            <!--
+            导航实际需要调的参数只有一下这些
+            1.TEB参数
+            2.全局规划器参数
+            3.代价地图
+            -->
+
+            <!--move_base节点自身的参数 如规划器和恢复行为的超时时间-->
             <rosparam file="$(find lby_test)/param/move_base_params.yaml" command="load"/>
+            <!--全局和局部代价地图的共享参数-->
             <rosparam file="$(find lby_test)/param/teb/costmap_common_params.yaml" command="load" ns="global_costmap" />
             <rosparam file="$(find lby_test)/param/teb/costmap_common_params.yaml" command="load" ns="local_costmap" />
+            <!--局部代价地图特有的参数-->
             <rosparam file="$(find lby_test)/param/teb/local_costmap_params.yaml" command="load" />
+            <!--全局代价地图特有的参数-->
             <rosparam file="$(find lby_test)/param/teb/global_costmap_params.yaml" command="load" />
 
+            <!--teb核心参数！！-->
             <rosparam file="$(find lby_test)/param/teb/$(arg base)_teb_local_planner_params.yaml" command="load" />
+            <!--全局路径规划器的参数-->
             <rosparam file="$(find lby_test)/param/teb/global_planner_params.yaml" command="load" />
             
+            <!--
+            下面的参数配置，只完成了以下几件事，不需要修改
+            1.选择局部规划器为TEB
+            2.定义机器人尺寸
+            3.配置数据源（订阅的话题以及坐标系）
+            -->
             <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
             <param if="$(eval base=='compact')" name="footprint" value="[[0.34,0.1],[0.34,-0.1],[-0.05,-0.1],[-0.05,0.1]]" />
             <param if="$(eval base=='standard')" name="footprint" value="[[0.42,0.14],[0.42,-0.14],[-0.12,-0.14],[-0.12,0.14]]" />
