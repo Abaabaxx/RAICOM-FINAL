@@ -1,0 +1,31 @@
+# ROS build artifacts
+# =================================
+/build/
+/devel/
+/install/
+
+# ROS package files
+# =================================
+*.lisp
+*.pyc
+*.pyo
+*.swp
+*~
+*#
+
+# ROS workspace files
+# =================================
+.catkin_workspace
+.catkin_tools/
+.colcon_install_layout
+
+# ROS logging
+# =================================
+log/
+*.log
+
+# IDE specific files
+# =================================
+.vscode/
+.idea/
+*.DS_Store
