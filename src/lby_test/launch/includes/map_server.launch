@@ -1,13 +1,25 @@
 <?xml version="1.0"?>
 <launch>
+    <arg name="robot_name" default="$(optenv TIANRACER_NAME tianracer)" doc="robot name [tianracer_No1, tianracer_No2, tianracer_No3, ...]"/>
+    <!-- Define various frame and topic IDs with default values -->
+    <arg name="odom_frame_id" default="odom"/>
+    <arg name="base_frame_id" default="base_footprint"/>
+    <arg name="global_frame_id" default="map"/>
+    <arg name="laser_frame_id" default="laser"/>
+    <arg name="odom_topic" default="odom" />
+    <arg name="laser_topic" default="scan" />
+    <arg name="depth_points_topic" default="camera/depth_registered/points" />
+    <arg name="lidar_points_topic" default="lidar_points" /> 
+
+    <!--地图文件路径-->>
     <arg name="map_name" default="tianbotoffice_602"/>
     <arg name="map_path" default="/home/tianbot/tianbot_ws/src/lby_test/config/map"/>
-    <arg name="frame_id" default="map"/>
 
     <!-- 启动 map_server 节点 -->
-    <node name="map_server" pkg="map_server" type="map_server" respawn="true"
-          args="$(arg map_path)/$(arg map_name).yaml">
-        <param name="frame_id" value="$(arg frame_id)"/>
-    </node>
-
+    <group ns="$(arg robot_name)">
+        <!-- Map server -->
+        <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_path)/$(arg map_name).yaml" >
+            <param name="frame_id" value="$(arg robot_name)/map" />
+        </node>
+    </group> 
 </launch>
