@@ -1,0 +1,6 @@
+<launch>
+
+    <!-- 启动导航管理节点 (带目标点发布功能) -->
+    <node pkg="f1" type="nav_manager.py" name="nav_manager" output="screen"/>
+
+</launch>

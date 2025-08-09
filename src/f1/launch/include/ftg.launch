@@ -1,0 +1,6 @@
+<launch>
+
+  <!-- 启动 ftg 节点 -->
+  <node pkg="f1" type="ftg.py" name="ftg_node" output="screen" />  
+
+</launch>

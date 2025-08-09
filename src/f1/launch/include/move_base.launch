@@ -1,0 +1,16 @@
+<launch>
+    <!--
+    发布的速度控制话题为/teb_cmd_vel
+    消息类型是 geometry_msgs/Twist
+    -->
+    
+    <!-- 配置命名空间，默认为 "tianracer" -->
+    <arg name="namespace" default="tianracer" />
+
+    <!-- 启动 move base  -->
+    <include file="$(find f1)/teb/teb_base.launch.xml" >
+        <arg name="robot_name" value="$(arg namespace)" />
+    </include>
+
+</launch>
+
