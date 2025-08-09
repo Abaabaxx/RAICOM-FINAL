@@ -1,12 +1,9 @@
 <launch>
     <!--比赛核心 launch-->
-    <!--该launch文件拉起 基础环境、Gazebo仿真环境、RVIZ、FTG节点、Movebase、裁判节点-->
+    <!--该launch文件拉起 基础环境、movebase、FTG节点-->
 
     <!-- 基础环境 -->
     <include file="$(find f1)/launch/include/base.launch" />
-
-    <!-- RVIZ -->
-    <include file="$(find f1)/launch/include/RVIZ.launch" />
 
     <!-- move_base -->
     <include file="$(find f1)/launch/include/move_base.launch" />
@@ -14,13 +11,7 @@
     <!-- 导航管理节点 -->
     <include file="$(find f1)/launch/include/nav_manager.launch" />
 
-    <!-- RVIZ debug 可视化 -->
-    <include file="$(find f1)/launch/include/all_debug.launch" />
-
     <!-- FTG 节点 -->
     <include file="$(find f1)/launch/include/ftg.launch" /> 
-
-    <!-- 裁判节点 -->
-    <node pkg="tianracer_gazebo" type="judge_system_node.py" name="judge_system_node" output="screen" />  
 
 </launch>

@@ -1,35 +1,25 @@
+<?xml version="1.0"?>
+
 <launch>
-    <!-- 配置地图文件 -->
-    <arg name="world" default="singapore" />
-    <!-- 配置命名空间，默认为 "tianracer" -->
-    <arg name="namespace" default="tianracer" />
+    <!-- 基础节点-->
+    <!-- TF树 -->
+    <include file="$(find lby_test)/launch/includes/tf.launch" />
 
-    <!-- 地图服务器节点，加载地图 -->
-    <node name="map_server" pkg="map_server" type="map_server" ns="$(arg namespace)" args="$(find tianracer_gazebo)/maps/$(arg world).yaml" >
-        <!-- 设置地图的参考坐标系为 "map" -->
-        <param name="frame_id" value="map" />
-    </node>
+    <!-- 机器人3D模型 -->
+    <include file="$(find lby_test)/launch/includes/tianracer_description.launch" />
 
-    <!-- 启动 Gazebo 仿真环境 -->
-    <include file="$(find tianracer_gazebo)/launch/tianracer_on_racetrack.launch">
-        <!-- 指定地图文件 -->
-        <arg name="world" value="$(arg world)" />
-        <!-- 指定机器人名称为命名空间 -->
-        <arg name="robot_name" value="$(arg namespace)" />
-    </include>
+    <!-- 地图发布 -->
+    <include file="$(find lby_test)/launch/includes/map_server.launch" />
+    
+    <!-- 手柄控制 -->
+    <include file="$(find tianracer_teleop)/launch/joystick_teleop.launch" />
 
-    <!-- 启动 Tianracer 控制节点 -->
-    <include file="$(find tianracer_gazebo)/launch/tianracer_control.launch" >
-        <!-- 指定机器人名称为命名空间 -->
-        <arg name="robot_name" value="$(arg namespace)" />
-    </include>
+    <!-- 激光雷达 -->
+    <include file="$(find lby_test)/launch/includes/lidar.launch" />
 
+    <!-- 底盘驱动 -->
+    <include file="$(find lby_test)/launch/includes/base.launch" />
 
-    <!-- 启动 AMCL 定位节点 -->
-    <include file="$(find tianracer_gazebo)/launch/includes/amcl.launch.xml" >
-        <!-- 指定机器人名称为命名空间 -->
-        <arg name="robot_name" value="$(arg namespace)" />
-    </include>
-
-
+    <!-- AMCL节点 -->
+    <include file="$(find lby_test)/launch/includes/amcl.launch" />
 </launch>
