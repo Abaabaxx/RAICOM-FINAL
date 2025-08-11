@@ -1,6 +1,0 @@
-<launch>
-
-    <!-- 启动 RQT 动态调参 -->
-    <node pkg="rqt_reconfigure" type="rqt_reconfigure" name="rqt_reconfigure" />
-
-</launch>
