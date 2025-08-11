@@ -83,10 +83,9 @@ class FollowTheGapNode:
         self.dyn_reconfig_server = Server(F1TuningConfig, self.reconfigure_callback)
 
         # 创建发布者和订阅者
-        # 【注意】这里的发布话题名 /tianracer/ackermann_cmd_stamped 是正确的，
-        # 因为我们最终方案决定让FTG直接发布到这个最终控制话题上。
-        self.drive_pub = rospy.Publisher('/tianracer/ackermann_cmd_stamped', AckermannDriveStamped, queue_size=1)
-        self.scan_sub = rospy.Subscriber('/tianracer/scan', LaserScan, self.radar_callback)
+        # 【修改】话题名和消息类型都必须与实体小车匹配
+        self.drive_pub = rospy.Publisher('/Tianracer/ackermann_cmd', AckermannDrive, queue_size=1)
+        self.scan_sub = rospy.Subscriber('/Tianracer/scan', LaserScan, self.radar_callback)
 
         # --- 【原有】订阅导航模式话题 ---
         self.mode_sub = rospy.Subscriber('/navigation/mode', String, self.mode_callback)
@@ -383,24 +382,21 @@ class FollowTheGapNode:
     def publish_control_command(self, speed, steering_angle):
         """
         七、创建并发布阿克曼驱动消息。
+        【修改】适配实体小车的 AckermannDrive 消息类型 (非Stamped版本)
 
         参数:
             speed (float): 车辆的目标速度。
             steering_angle (float): 车辆的目标转向角。
         """
-        # 创建一个阿克曼驱动消息对象
-        drive_stamped_msg = AckermannDriveStamped()
+        # 创建一个更简单的 AckermannDrive 消息对象 (没有header)
+        drive_msg = AckermannDrive()
         
-        # 填充消息的header部分
-        drive_stamped_msg.header.stamp = rospy.Time.now()
-        drive_stamped_msg.header.frame_id = "base_link"  # 或者 "tianracer/base_link"
-        
-        # 填充消息的drive部分
-        drive_stamped_msg.drive.steering_angle = steering_angle
-        drive_stamped_msg.drive.speed = speed
+        # 直接填充消息的 drive 部分
+        drive_msg.steering_angle = steering_angle
+        drive_msg.speed = speed
         
         # 通过发布者发布消息
-        self.drive_pub.publish(drive_stamped_msg)
+        self.drive_pub.publish(drive_msg)
 
     def process_lidar(self, data):
         """
