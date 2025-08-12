@@ -26,7 +26,13 @@
 
 使用dynamic_reconfigure支持实时参数调整。
 """
+"""
+发布话题启动：
+rostopic pub /ftg/enable std_msgs/Bool "data: true"
 
+发布话题停止：
+rostopic pub /ftg/enable std_msgs/Bool "data: false"
+"""
 
 import rospy
 import numpy as np

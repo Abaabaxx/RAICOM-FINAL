@@ -56,7 +56,7 @@ class NavigationManager:
                                             queue_size=1, latch=True)
         
         # 创建订阅者
-        self.odom_subscriber = rospy.Subscriber('/tianracer/odom', Odometry, 
+        self.odom_subscriber = rospy.Subscriber('/Tianracer/odom', Odometry, 
                                               self.on_odometry_received)
         
         # 创建move_base action客户端
