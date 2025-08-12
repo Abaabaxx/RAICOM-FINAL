@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 设置地图保存的目标目录
-MAP_DIR="/home/tianbot/tianbot_ws/src/lby_test/config/map"
+MAP_DIR="/home/tianbot/tianbot_ws/src/lby_test/param/map"
 
 # 动态生成文件名
 FILENAME="map_$(date +'%Y_%m_%d_%H_%M')"
