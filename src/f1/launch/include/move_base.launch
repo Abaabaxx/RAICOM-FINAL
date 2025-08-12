@@ -29,15 +29,15 @@
             <!--move_base节点自身的参数 如规划器和恢复行为的超时时间-->
             <rosparam file="$(find lby_test)/param/move_base_params.yaml" command="load"/>
             <!--全局和局部代价地图的共享参数-->
-            <rosparam file="$(find lby_test)/param/teb/costmap_common_params.yaml" command="load" ns="global_costmap" />
-            <rosparam file="$(find lby_test)/param/teb/costmap_common_params.yaml" command="load" ns="local_costmap" />
+            <rosparam file="$(find lby_test)/param/teb/costmap_common_params_global.yaml" command="load" ns="global_costmap" />
+            <rosparam file="$(find lby_test)/param/teb/costmap_common_params_local.yaml" command="load" ns="local_costmap" />
             <!--局部代价地图特有的参数-->
             <rosparam file="$(find lby_test)/param/teb/local_costmap_params.yaml" command="load" />
             <!--全局代价地图特有的参数-->
             <rosparam file="$(find lby_test)/param/teb/global_costmap_params.yaml" command="load" />
 
             <!--teb核心参数！！-->
-            <rosparam file="$(find lby_test)/param/teb/$(arg base)_teb_local_planner_params.yaml" command="load" />
+            <rosparam file="$(find lby_test)/param/teb/compact_teb_local_planner_params.yaml" command="load" />
             <!--全局路径规划器的参数-->
             <rosparam file="$(find lby_test)/param/teb/global_planner_params.yaml" command="load" />
             
