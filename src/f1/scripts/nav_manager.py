@@ -60,7 +60,7 @@ class NavigationManager:
                                               self.on_odometry_received)
         
         # 创建move_base action客户端
-        self.move_base_client = actionlib.SimpleActionClient('tianracer/move_base', MoveBaseAction)
+        self.move_base_client = actionlib.SimpleActionClient('Tianracer/move_base', MoveBaseAction)
         
         # 等待move_base服务器启动
         rospy.loginfo("等待move_base服务器...")
