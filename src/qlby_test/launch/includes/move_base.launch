@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+
+<launch>
+    <arg name="robot_name" default="$(optenv TIANRACER_NAME tianracer)" doc="robot name [tianracer_No1, tianracer_No2, tianracer_No3, ...]"/>
+    <arg name="fixed_frame" value="$(arg robot_name)/map"/>
+     <arg name="base" default="$(optenv TIANRACER_BASE compact)" />
+     
+    <!-- Define various frame and topic IDs with default values -->
+    <arg name="odom_frame_id" default="odom"/>
+    <arg name="base_frame_id" default="base_footprint"/>
+    <arg name="global_frame_id" default="map"/>
+    <arg name="laser_frame_id" default="laser"/>
+    <arg name="odom_topic" default="odom" />
+    <arg name="laser_topic" default="scan" />
+    <arg name="depth_points_topic" default="camera/depth_registered/points" />
+    <arg name="lidar_points_topic" default="lidar_points" /> 
+
+    <group ns="$(arg robot_name)">
+        <!--  Navigation -->
+        <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+
+            <!--
+            导航实际需要调的参数只有一下这些
+            1.TEB参数
+            2.全局规划器参数
+            3.代价地图
+            -->
+
+            <!--move_base节点自身的参数 如规划器和恢复行为的超时时间-->
+            <rosparam file="$(find lby_test)/param/move_base_params.yaml" command="load"/>
+            <!--全局和局部代价地图的共享参数-->
+            <rosparam file="$(find lby_test)/param/teb/costmap_common_params_global.yaml" command="load" ns="global_costmap" />
+            <rosparam file="$(find lby_test)/param/teb/costmap_common_params_local.yaml" command="load" ns="local_costmap" />
+            <!--局部代价地图特有的参数-->
+            <rosparam file="$(find lby_test)/param/teb/local_costmap_params.yaml" command="load" />
+            <!--全局代价地图特有的参数-->
+            <rosparam file="$(find lby_test)/param/teb/global_costmap_params.yaml" command="load" />
+
+            <!--teb核心参数！！-->
+            <rosparam file="$(find lby_test)/param/teb/compact_teb_local_planner_params.yaml" command="load" />
+            <!--全局路径规划器的参数-->
+            <rosparam file="$(find lby_test)/param/teb/global_planner_params.yaml" command="load" />
+            
+            <!--
+            下面的参数配置，只完成了以下几件事，不需要修改
+            1.选择局部规划器为TEB
+            2.定义机器人尺寸
+            3.配置数据源（订阅的话题以及坐标系）
+            -->
+            <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+            <param if="$(eval base=='compact')" name="footprint" value="[[0.34,0.1],[0.34,-0.1],[-0.05,-0.1],[-0.05,0.1]]" />
+            <param if="$(eval base=='standard')" name="footprint" value="[[0.42,0.14],[0.42,-0.14],[-0.12,-0.14],[-0.12,0.14]]" />
+            <param if="$(eval base=='fullsize')" name="footprint" value="[[0.8,0.27],[0.8,-0.27],[-0.2,-0.27],[-0.2,0.27]]" />
+            <param name="clearing_rotation_allowed" value="false" /> <!-- Our carlike robot is not able to rotate in place -->
+
+            <param name="local_costmap/robot_base_frame" value="$(arg robot_name)/$(arg base_frame_id)"/>
+            <param name="local_costmap/global_frame" value="$(arg robot_name)/$(arg odom_frame_id)"/>
+            <param name="local_costmap/scan/sensor_frame" value="$(arg robot_name)/$(arg laser_frame_id)"/>
+            <param name="local_costmap/scan/topic" value="/$(arg robot_name)/$(arg laser_topic)"/>
+            <param name="local_costmap/depth_points/topic" value="/$(arg robot_name)/$(arg depth_points_topic)"/>
+            <param name="local_costmap/lidar_points/topic" value="/$(arg robot_name)/$(arg lidar_points_topic)"/>
+            
+            <param name="global_costmap/robot_base_frame" value="$(arg robot_name)/$(arg base_frame_id)"/>
+            <param name="global_costmap/global_frame" value="$(arg robot_name)/$(arg global_frame_id)"/>
+            <param name="global_costmap/scan/sensor_frame" value="$(arg robot_name)/$(arg laser_frame_id)"/>
+            <param name="global_costmap/scan/topic" value="/$(arg robot_name)/$(arg laser_topic)"/>
+            <param name="global_costmap/depth_points/topic" value="/$(arg robot_name)/$(arg depth_points_topic)"/>
+            <param name="global_costmap/lidar_points/topic" value="/$(arg robot_name)/$(arg lidar_points_topic)"/>
+            <param name="TebLocalPlannerROS/odom_topic" value="/$(arg robot_name)/$(arg odom_topic)"/>
+
+        </node>
+        <!-- cmd_vel to ackermann_cmd -->
+        <node pkg="tianracer_navigation" type="cmd_vel_to_ackermann_drive.py" name="vel_to_ackermann" >
+            <param name="twist_cmd_topic" value="/$(arg robot_name)/cmd_vel" />
+            <param name="ackermann_cmd_topic" value="/$(arg robot_name)/ackermann_cmd" />
+            <param if="$(eval base=='compact')" name="wheelbase" value="0.255" />
+            <param if="$(eval base=='standard')" name="wheelbase" value="0.33" />
+            <param if="$(eval base=='fullsize')" name="wheelbase" value="0.6" />
+        </node>        
+    </group> 
+    
+</launch>

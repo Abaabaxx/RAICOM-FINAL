@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+
+<launch>
+    <!-- 基础节点-->
+    <!-- TF树 -->
+    <include file="$(find lby_test)/launch/includes/tf.launch" />
+
+    <!-- 机器人3D模型 -->
+    <include file="$(find lby_test)/launch/includes/tianracer_description.launch" />
+
+    <!-- 地图发布 -->
+    <include file="$(find lby_test)/launch/includes/map_server.launch" />
+    
+    <!-- 手柄控制 -->
+    <include file="$(find tianracer_teleop)/launch/joystick_teleop.launch" />
+
+    <!-- 激光雷达 -->
+    <include file="$(find lby_test)/launch/includes/lidar.launch" />
+
+    <!-- 底盘驱动 -->
+    <include file="$(find lby_test)/launch/includes/base.launch" />
+</launch>
