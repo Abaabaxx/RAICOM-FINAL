@@ -71,7 +71,7 @@ class NavigationManager:
         
         # 发布初始状态
         self.publish_mode(self.current_mode)
-        rospy.loginfo(f"导航管理器已启动，初始模式: {self.current_mode}")
+        rospy.loginfo("导航管理器已启动，初始模式: {}".format(self.current_mode))
         
         # 当前机器人位置（用于调试和日志）
         self.current_x = 0.0
@@ -98,27 +98,27 @@ class NavigationManager:
 
         for i in range(1, MAX_ZONES + 1):
             # 检查该区域是否被启用
-            if config[f'zone_{i}_enable']:
+            if config['zone_{}_enable'.format(i)]:
                 try:
                     zone = {
-                        "name":     config[f'zone_{i}_name'],
-                        "center_x": config[f'zone_{i}_center_x'],
-                        "center_y": config[f'zone_{i}_center_y'],
-                        "radius":   config[f'zone_{i}_radius'],
+                        "name":     config['zone_{}_name'.format(i)],
+                        "center_x": config['zone_{}_center_x'.format(i)],
+                        "center_y": config['zone_{}_center_y'.format(i)],
+                        "radius":   config['zone_{}_radius'.format(i)],
                         "goal": {
-                            "x":      config[f'zone_{i}_goal_x'],
-                            "y":      config[f'zone_{i}_goal_y'],
-                            "yaw":    math.radians(config[f'zone_{i}_goal_yaw_deg'])
+                            "x":      config['zone_{}_goal_x'.format(i)],
+                            "y":      config['zone_{}_goal_y'.format(i)],
+                            "yaw":    math.radians(config['zone_{}_goal_yaw_deg'.format(i)])
                         }
                     }
                     new_zones.append(zone)
-                    rospy.logdebug(f"已加载动态配置区域: {zone['name']}")
+                    rospy.logdebug("已加载动态配置区域: {}".format(zone['name']))
                 except KeyError as e:
-                    rospy.logerr(f"处理动态区域 {i} 时出错: 键 {e} 缺失")
+                    rospy.logerr("处理动态区域 {} 时出错: 键 {} 缺失".format(i, e))
 
         # 原子性地更新区域列表，防止在检查时列表被修改
         self.teb_zones = new_zones
-        rospy.loginfo(f"配置更新完成，当前已启用 {len(self.teb_zones)} 个TEB区域。")
+        rospy.loginfo("配置更新完成，当前已启用 {} 个TEB区域。".format(len(self.teb_zones)))
         
         # 必须返回config对象
         return config
@@ -140,7 +140,7 @@ class NavigationManager:
             
             if zone_found is not None:
                 # 机器人刚从FTG区域进入TEB区域，触发切换
-                rospy.loginfo(f"机器人进入 {zone_found['name']} 区域，切换到TEB模式")
+                rospy.loginfo("机器人进入 {} 区域，切换到TEB模式".format(zone_found['name']))
                 self.switch_to_teb_mode(zone_found)
 
     def check_if_in_any_zone(self, x, y):
@@ -198,16 +198,18 @@ class NavigationManager:
         goal.target_pose.pose.orientation = Quaternion(*quat)
         
         # 发送目标，并指定任务完成后的回调函数
-        rospy.loginfo(f"发送TEB导航目标到 ({zone_info['goal']['x']:.2f}, "
-                     f"{zone_info['goal']['y']:.2f}, "
-                     f"{math.degrees(zone_info['goal']['yaw']):.1f}°)")
+        rospy.loginfo("发送TEB导航目标到 ({:.2f}, {:.2f}, {:.1f}°)".format(
+            zone_info['goal']['x'],
+            zone_info['goal']['y'],
+            math.degrees(zone_info['goal']['yaw'])
+        ))
         
         self.move_base_client.send_goal(goal, done_cb=self.on_teb_goal_done)
         
         # 【【【核心新增：启动超时计时器】】】
         # 创建一个7秒后触发一次的Timer
         # oneshot=True 表示它只触发一次，然后自动停止
-        rospy.loginfo("启动15秒导航超时计时器...")
+        rospy.loginfo("启动7秒导航超时计时器...")
         self.teb_timeout_timer = rospy.Timer(rospy.Duration(7.0), 
                                              self.on_teb_timeout, 
                                              oneshot=True)
@@ -219,7 +221,7 @@ class NavigationManager:
         """
         # 检查是否仍处于TEB模式，防止在模式切换的瞬间发生冲突
         if self.current_mode == "TEB_MODE":
-            rospy.logwarn(f"TEB导航任务 '{self.active_teb_zone_name}' 超时 (超过7秒)!")
+            rospy.logwarn("TEB导航任务 '{}' 超时 (超过7秒)!".format(self.active_teb_zone_name))
             
             # 首先，取消move_base的当前目标，让机器人停下来
             self.cancel_all_move_base_goals()
@@ -246,13 +248,13 @@ class NavigationManager:
         from actionlib_msgs.msg import GoalStatus
         
         if status == GoalStatus.SUCCEEDED:
-            rospy.loginfo(f"TEB任务 {self.active_teb_zone_name} 成功完成")
+            rospy.loginfo("TEB任务 {} 成功完成".format(self.active_teb_zone_name))
         elif status == GoalStatus.PREEMPTED:
-            rospy.logwarn(f"TEB任务 {self.active_teb_zone_name} 被取消")
+            rospy.logwarn("TEB任务 {} 被取消".format(self.active_teb_zone_name))
         elif status == GoalStatus.ABORTED:
-            rospy.logerr(f"TEB任务 {self.active_teb_zone_name} 执行失败")
+            rospy.logerr("TEB任务 {} 执行失败".format(self.active_teb_zone_name))
         else:
-            rospy.logwarn(f"TEB任务 {self.active_teb_zone_name} 结束，状态: {status}")
+            rospy.logwarn("TEB任务 {} 结束，状态: {}".format(self.active_teb_zone_name, status))
         
         # 无论成功还是失败，都切换回FTG模式
         self.switch_to_ftg_mode("TEB任务结束")
@@ -276,7 +278,7 @@ class NavigationManager:
         
         # 公告新状态
         self.publish_mode(self.current_mode)
-        rospy.loginfo(f"切换回FTG模式。原因: {reason}")
+        rospy.loginfo("切换回FTG模式。原因: {}".format(reason))
 
     def cancel_all_move_base_goals(self):
         """取消所有move_base目标"""
@@ -295,7 +297,7 @@ class NavigationManager:
         mode_msg = String()
         mode_msg.data = mode
         self.mode_publisher.publish(mode_msg)
-        rospy.logdebug(f"发布导航模式: {mode}")
+        rospy.logdebug("发布导航模式: {}".format(mode))
 
     def get_current_status(self):
         """获取当前状态信息（用于调试）"""
@@ -328,11 +330,13 @@ class NavigationManager:
         """定期打印状态信息"""
         status = self.get_current_status()
         timer_status = "有活动计时器" if status['has_active_timer'] else "无计时器"
-        rospy.loginfo(f"状态报告 - 模式: {status['current_mode']}, "
-                     f"位置: ({status['current_position'][0]:.2f}, "
-                     f"{status['current_position'][1]:.2f}), "
-                     f"活动区域: {status['active_zone']}, "
-                     f"计时器状态: {timer_status}")
+        rospy.loginfo("状态报告 - 模式: {}, 位置: ({:.2f}, {:.2f}), 活动区域: {}, 计时器状态: {}".format(
+            status['current_mode'],
+            status['current_position'][0],
+            status['current_position'][1],
+            status['active_zone'],
+            timer_status
+        ))
 
 
 def main():
@@ -345,7 +349,7 @@ def main():
     except rospy.ROSInterruptException:
         rospy.loginfo("程序被用户中断")
     except Exception as e:
-        rospy.logerr(f"导航管理器发生错误: {e}")
+        rospy.logerr("导航管理器发生错误: {}".format(e))
         import traceback
         rospy.logerr(traceback.format_exc())
 
