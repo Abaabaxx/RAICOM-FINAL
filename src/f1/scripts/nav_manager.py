@@ -185,7 +185,7 @@ class NavigationManager:
         
         # 准备并发送导航目标给move_base
         goal = MoveBaseGoal()
-        goal.target_pose.header.frame_id = "map"
+        goal.target_pose.header.frame_id = "Tianracer/map"
         goal.target_pose.header.stamp = rospy.Time.now()
         
         # 设置目标位置
