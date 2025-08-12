@@ -1,7 +1,0 @@
-<?xml version="1.0"?>
-
-<launch>
-    <!--发布基础静态TF关系-->
-    <!-- TF树 -->
-    <include file="$(find tianracer_description)/launch/tianracer_tf.launch" />
-</launch>

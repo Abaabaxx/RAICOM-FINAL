@@ -1,6 +1,0 @@
-<?xml version="1.0"?>
-
-<launch>
-    <!-- 激光雷达 -->
-    <include file="$(find tianracer_bringup)/launch/lidar.launch" />
-</launch>
