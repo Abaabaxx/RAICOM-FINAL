@@ -12,7 +12,7 @@
     <arg name="lidar_points_topic" default="lidar_points" /> 
 
     <!--地图文件路径-->
-    <arg name="map_name" default="map_2025_08_12_13_57"/>
+    <arg name="map_name" default="map_2025_08_14_01_01"/>
     <arg name="map_path" default="/home/tianbot/tianbot_ws/src/lby_test/param/map"/>
 
     <!-- 启动 map_server 节点 -->

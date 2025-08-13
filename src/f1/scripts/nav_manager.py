@@ -6,6 +6,7 @@
 # 该版本支持7个TEB区域（ctrl+f搜索7，将与TEB区域相关的7更换为想改变的区域数量即可【注意TEB导航超时时间为7S，不要修改错了】）
 # 关键修改：将TEB区域的配置改为从dynamic_reconfigure加载和动态调整（最终证明，配置rqt_reconfigure的动态调参功能大大大大的方便了最后的调参，这个功能一定要好好学习）
 # 新增：TEB导航7秒超时保护机制（ctrl+f搜索7，将与超时保护相关的7更换为想改变的超时时间即可【注意TEB区域默认数量也为7，不要修改错了】）
+# 【新增】使用TF获取map下的base_link位姿，解决里程计累积误差问题
 
 """
 导航管理器节点 (Navigation Manager Node)
@@ -16,8 +17,9 @@
 import rospy
 import actionlib
 import math
+import tf  # 【新增】引入tf库
 from std_msgs.msg import String
-from nav_msgs.msg import Odometry
+# 【删除】不再需要导入Odometry
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import PoseStamped, Quaternion
 from tf.transformations import quaternion_from_euler
@@ -45,6 +47,14 @@ class NavigationManager:
         # 【新增】用于TEB任务超时的计时器
         self.teb_timeout_timer = None
 
+        # 【新增】TF监听器，用于获取map->base_link的修正后位姿
+        self.tf_listener = tf.TransformListener()
+        
+        # 【新增】从参数服务器获取坐标系名称，增加灵活性
+        self.map_frame = rospy.get_param("~map_frame", "Tianracer/map")
+        self.base_frame = rospy.get_param("~base_frame", "Tianracer/base_link")
+        rospy.loginfo("将使用TF树监听 {} -> {} 的位姿。".format(self.map_frame, self.base_frame))
+
         # 【【【核心修改：设置Dynamic Reconfigure服务器】】】
         # 这会启动一个服务，RQT可以连接到这个服务
         # 当RQT中的参数被修改时，它会自动调用 self.dynamic_reconfigure_callback
@@ -55,9 +65,9 @@ class NavigationManager:
         self.mode_publisher = rospy.Publisher('/navigation/mode', String, 
                                             queue_size=1, latch=True)
         
-        # 创建订阅者
-        self.odom_subscriber = rospy.Subscriber('/Tianracer/odom', Odometry, 
-                                              self.on_odometry_received)
+        # 【删除】不再订阅里程计
+        # 【新增】创建定时器，定期检查位姿
+        self.check_pose_timer = rospy.Timer(rospy.Duration(0.2), self.check_position_callback)  # 5Hz
         
         # 创建move_base action客户端
         self.move_base_client = actionlib.SimpleActionClient('Tianracer/move_base', MoveBaseAction)
@@ -123,16 +133,27 @@ class NavigationManager:
         # 必须返回config对象
         return config
 
-    def on_odometry_received(self, odom_msg):
+    # 【新增】替换原有的on_odometry_received方法
+    def check_position_callback(self, event):
         """
-        里程计回调函数 - 主要决策点
+        定时器回调函数 - 这是新的主要决策点
+        它通过TF获取机器人修正后的位姿，然后判断是否需要切换模式。
         
         Args:
-            odom_msg (Odometry): 里程计消息
+            event: Timer event (not used)
         """
+        # 通过TF查询机器人当前在map坐标系中的位姿
+        try:
+            # 查询最新的可用变换
+            (trans, rot) = self.tf_listener.lookupTransform(self.map_frame, self.base_frame, rospy.Time(0))
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            rospy.logwarn_throttle(2.0, "无法获取从 '{}' 到 '{}' 的位姿变换，暂时无法进行导航决策: {}".format(
+                self.map_frame, self.base_frame, e))
+            return
+
         # 获取当前位置
-        self.current_x = odom_msg.pose.pose.position.x
-        self.current_y = odom_msg.pose.pose.position.y
+        self.current_x = trans[0]
+        self.current_y = trans[1]
                 
         if self.current_mode == "FTG_MODE":
             # 检查是否进入了任何一个可以触发TEB的区域
@@ -140,7 +161,8 @@ class NavigationManager:
             
             if zone_found is not None:
                 # 机器人刚从FTG区域进入TEB区域，触发切换
-                rospy.loginfo("机器人进入 {} 区域，切换到TEB模式".format(zone_found['name']))
+                rospy.loginfo("机器人进入 {} 区域 (位置: {:.2f}, {:.2f})，切换到TEB模式".format(
+                    zone_found['name'], self.current_x, self.current_y))
                 self.switch_to_teb_mode(zone_found)
 
     def check_if_in_any_zone(self, x, y):
@@ -325,6 +347,9 @@ class NavigationManager:
             # 【新增】清理超时计时器
             if self.teb_timeout_timer:
                 self.teb_timeout_timer.shutdown()
+            # 【新增】清理位姿检查定时器
+            if hasattr(self, 'check_pose_timer'):
+                self.check_pose_timer.shutdown()
 
     def print_status(self, event):
         """定期打印状态信息"""
