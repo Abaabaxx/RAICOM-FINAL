@@ -67,9 +67,9 @@
     name="${tf_prefix}imu_link">
   </link>
   <joint name="base_link_to_imu" type="fixed">
-    <parent link="${tf_prefix}base_link" />
+    <parent link="${tf_prefix}base_footprint" />
     <child link="${tf_prefix}imu_link" />
-    <origin xyz="0.22 0 0.1" rpy="0 0 0"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
 
