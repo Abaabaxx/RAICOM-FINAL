@@ -2,8 +2,7 @@
 frequency: 20
 sensor_timeout: 0.1
 two_d_mode: true
-# 注释掉ekf的提前发布0.1s的时间戳，为了cartographer建图和定位，后期导航崩了再调回来
-# transform_time_offset: 0.1
+transform_time_offset: 0.1
 predict_to_current_time: true
 print_diagnostics: false
 debug: false
