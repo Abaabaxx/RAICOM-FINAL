@@ -1,0 +1,7 @@
+image: /home/tianbot/tianbot_ws/src/lby_test/param/map/map_2025_08_16_01_24.pgm
+resolution: 0.025000
+origin: [-1.793194, -1.871509, 0.000000]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+

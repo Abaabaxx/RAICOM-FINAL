@@ -9,7 +9,7 @@ FILENAME="map_$(date +'%Y_%m_%d_%H_%M')"
 # 确保目录存在
 mkdir -p $MAP_DIR
 
-echo "正在保存 gmapping 建的地图..."
+echo "正在保存 cartographer 建的地图图"
 echo "目标话题: /Tianracer/map"
 echo "保存路径: $MAP_DIR/$FILENAME"
 
