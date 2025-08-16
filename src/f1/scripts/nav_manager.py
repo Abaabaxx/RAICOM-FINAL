@@ -23,6 +23,7 @@ from std_msgs.msg import String, Bool  # 【新增】导入Bool消息类型
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import PoseStamped, Quaternion
 from tf.transformations import quaternion_from_euler
+from std_srvs.srv import Empty  # 【新增】导入Empty服务类型，用于清理代价地图
 
 # 【新增】导入dynamic_reconfigure相关的库
 from dynamic_reconfigure.server import Server
@@ -88,6 +89,11 @@ class NavigationManager:
             rospy.loginfo("move_base服务器连接成功")
         else:
             rospy.logwarn("move_base服务器连接超时，但节点将继续运行")
+            
+        # 【新增】初始化清理代价地图的服务客户端
+        self.clear_costmaps_service_name = 'Tianracer/move_base/clear_costmaps'
+        self.clear_costmaps_client = rospy.ServiceProxy(self.clear_costmaps_service_name, Empty)
+        rospy.loginfo("已创建清理代价地图的服务客户端，服务名称: %s", self.clear_costmaps_service_name)
         
         # 发布初始状态
         self.publish_mode(self.current_mode)
@@ -259,6 +265,9 @@ class NavigationManager:
             # 首先，取消move_base的当前目标，让机器人停下来
             self.cancel_all_move_base_goals()
             
+            # 【新增】清理代价地图，消除可能导致超时的"幻影"障碍物
+            self.clear_costmaps()
+            
             # 然后，切换回FTG模式。这里我们将其视为"成功"，按你的要求
             # 你也可以修改原因字符串，比如 "TEB任务超时"
             self.switch_to_ftg_mode("TEB任务超时，视为成功并切换")
@@ -286,6 +295,8 @@ class NavigationManager:
             rospy.logwarn("TEB任务 {} 被取消".format(self.active_teb_zone_name))
         elif status == GoalStatus.ABORTED:
             rospy.logerr("TEB任务 {} 执行失败".format(self.active_teb_zone_name))
+            # 【新增】在TEB导航失败时清理代价地图，尝试恢复系统状态
+            self.clear_costmaps()
         else:
             rospy.logwarn("TEB任务 {} 结束，状态: {}".format(self.active_teb_zone_name, status))
         
@@ -319,6 +330,30 @@ class NavigationManager:
                                                 actionlib.GoalStatus.ACTIVE]:
             rospy.loginfo("取消当前move_base目标")
             self.move_base_client.cancel_all_goals()
+    
+    def clear_costmaps(self):
+        """
+        清理move_base的局部代价地图
+        
+        这个方法会调用move_base提供的clear_costmaps服务，清除代价地图中的障碍物信息。
+        主要用于：
+        1. 系统关闭时，确保下次启动有一个干净的环境
+        2. TEB导航超时时，清除可能导致超时的"幻影"障碍物
+        3. TEB导航失败时，尝试恢复系统状态
+        """
+        try:
+            # 等待服务可用，设置较短的超时时间。如果超时，会抛出ROSException
+            rospy.wait_for_service(self.clear_costmaps_service_name, timeout=1.0)
+            
+            # 调用服务
+            self.clear_costmaps_client()
+            rospy.loginfo("成功调用清理代价地图服务")
+            
+        except rospy.ROSException as e:
+            # 这个异常会在wait_for_service超时时抛出
+            rospy.logwarn("等待清理代价地图服务'%s'超时: %s", self.clear_costmaps_service_name, e)
+        except rospy.ServiceException as e:
+            rospy.logerr("调用清理代价地图服务'%s'失败: %s", self.clear_costmaps_service_name, e)
 
     def publish_mode(self, mode):
         """
@@ -389,6 +424,9 @@ class NavigationManager:
         
         # 取消所有move_base目标
         self.cancel_all_move_base_goals()
+        
+        # 【新增】清理代价地图，确保下次启动时有干净的环境
+        self.clear_costmaps()
         
         # 停止位置检查定时器
         if self.check_pose_timer is not None:
