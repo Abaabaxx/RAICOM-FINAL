@@ -18,7 +18,7 @@ import rospy
 import actionlib
 import math
 import tf  # 【新增】引入tf库
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool  # 【新增】导入Bool消息类型
 # 【删除】不再需要导入Odometry
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import PoseStamped, Quaternion
@@ -39,6 +39,9 @@ class NavigationManager:
         rospy.init_node('navigation_manager', anonymous=True)
         rospy.loginfo("导航管理器节点启动中...")
         
+        # 【新增】系统总开关状态变量
+        self.system_active = False
+        
         # 内部状态变量
         self.current_mode = "FTG_MODE"
         self.active_teb_zone_name = None
@@ -46,6 +49,9 @@ class NavigationManager:
         
         # 【新增】用于TEB任务超时的计时器
         self.teb_timeout_timer = None
+        
+        # 【新增】位置检查定时器，初始为None，只有在系统激活时才会创建
+        self.check_pose_timer = None
 
         # 【新增】TF监听器，用于获取map->base_link的修正后位姿
         self.tf_listener = tf.TransformListener()
@@ -65,9 +71,13 @@ class NavigationManager:
         self.mode_publisher = rospy.Publisher('/navigation/mode', String, 
                                             queue_size=1, latch=True)
         
-        # 【删除】不再订阅里程计
-        # 【新增】创建定时器，定期检查位姿
-        self.check_pose_timer = rospy.Timer(rospy.Duration(0.2), self.check_position_callback)  # 5Hz
+        # 【新增】创建FTG控制发布者
+        self.ftg_enable_publisher = rospy.Publisher('/ftg/enable', Bool, 
+                                                queue_size=1, latch=True)
+        
+        # 【新增】创建系统总开关订阅者
+        self.toggle_sub = rospy.Subscriber('/navigation/toggle_system', Bool, 
+                                        self.system_control_callback)
         
         # 创建move_base action客户端
         self.move_base_client = actionlib.SimpleActionClient('Tianracer/move_base', MoveBaseAction)
@@ -82,6 +92,7 @@ class NavigationManager:
         # 发布初始状态
         self.publish_mode(self.current_mode)
         rospy.loginfo("导航管理器已启动，初始模式: {}".format(self.current_mode))
+        rospy.loginfo("系统当前处于待机状态，等待通过 /navigation/toggle_system 话题激活...")
         
         # 当前机器人位置（用于调试和日志）
         self.current_x = 0.0
@@ -321,9 +332,84 @@ class NavigationManager:
         self.mode_publisher.publish(mode_msg)
         rospy.logdebug("发布导航模式: {}".format(mode))
 
+    # 【新增】系统总开关的回调函数
+    def system_control_callback(self, msg):
+        """
+        处理来自 /navigation/toggle_system 话题的指令。
+        True = 激活系统, False = 停止系统。
+        
+        Args:
+            msg: std_msgs/Bool 消息
+        """
+        if msg.data is True and not self.system_active:
+            rospy.loginfo("收到系统启动指令，正在激活导航功能...")
+            self.activate_system()
+            self.system_active = True
+        elif msg.data is False and self.system_active:
+            rospy.loginfo("收到系统关闭指令，正在停止所有导航功能...")
+            self.deactivate_system()
+            self.system_active = False
+        else:
+            rospy.logdebug("收到冗余的系统控制指令，当前状态无需改变。")
+
+    def activate_system(self):
+        """
+        激活整个导航系统:
+        1. 启动FTG节点
+        2. 设置默认导航模式为FTG
+        3. 启动位置检查定时器
+        """
+        # 激活FTG节点
+        ftg_msg = Bool()
+        ftg_msg.data = True
+        self.ftg_enable_publisher.publish(ftg_msg)
+        
+        # 确保导航模式为FTG_MODE
+        self.current_mode = "FTG_MODE"
+        self.publish_mode(self.current_mode)
+        
+        # 启动位置检查定时器
+        if self.check_pose_timer is None:
+            self.check_pose_timer = rospy.Timer(rospy.Duration(0.2), self.check_position_callback)  # 5Hz
+            
+        rospy.loginfo("导航系统已激活，当前模式: FTG_MODE")
+        
+    def deactivate_system(self):
+        """
+        停止整个导航系统:
+        1. 停止FTG节点
+        2. 取消所有move_base目标
+        3. 停止位置检查定时器
+        4. 重置内部状态
+        """
+        # 停止FTG节点
+        ftg_msg = Bool()
+        ftg_msg.data = False
+        self.ftg_enable_publisher.publish(ftg_msg)
+        
+        # 取消所有move_base目标
+        self.cancel_all_move_base_goals()
+        
+        # 停止位置检查定时器
+        if self.check_pose_timer is not None:
+            self.check_pose_timer.shutdown()
+            self.check_pose_timer = None
+            
+        # 重置内部状态
+        self.current_mode = "FTG_MODE"  # 默认模式
+        self.active_teb_zone_name = None
+        
+        # 如果有超时计时器，也停止它
+        if self.teb_timeout_timer is not None:
+            self.teb_timeout_timer.shutdown()
+            self.teb_timeout_timer = None
+            
+        rospy.loginfo("导航系统已停止并重置，等待下次激活...")
+        
     def get_current_status(self):
         """获取当前状态信息（用于调试）"""
         return {
+            "system_active": self.system_active,
             "current_mode": self.current_mode,
             "active_zone": self.active_teb_zone_name,
             "current_position": (self.current_x, self.current_y),
@@ -355,7 +441,9 @@ class NavigationManager:
         """定期打印状态信息"""
         status = self.get_current_status()
         timer_status = "有活动计时器" if status['has_active_timer'] else "无计时器"
-        rospy.loginfo("状态报告 - 模式: {}, 位置: ({:.2f}, {:.2f}), 活动区域: {}, 计时器状态: {}".format(
+        system_status = "已激活" if status['system_active'] else "待机中"
+        rospy.loginfo("状态报告 - 系统: {}, 模式: {}, 位置: ({:.2f}, {:.2f}), 活动区域: {}, 计时器状态: {}".format(
+            system_status,
             status['current_mode'],
             status['current_position'][0],
             status['current_position'][1],

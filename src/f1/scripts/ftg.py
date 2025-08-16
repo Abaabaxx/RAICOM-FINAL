@@ -106,6 +106,14 @@ class FollowTheGapNode:
         rospy.loginfo("Waiting for activation signal on /ftg/enable topic...")
         rospy.loginfo("Also waiting for mode commands from navigation manager.")
 
+    # --- 【新增】发送停止命令 ---
+    def send_stop_command(self):
+        """
+        发送一个停止命令，将车辆的速度和转向角都设为0
+        """
+        rospy.loginfo("FTG_Node: Sending STOP command to vehicle.")
+        self.publish_control_command(0.0, 0.0)
+        
     # --- 【新增】外部启停控制的回调函数 ---
     def enable_callback(self, msg):
         """
@@ -122,6 +130,8 @@ class FollowTheGapNode:
             else:
                 rospy.loginfo("FTG_Node: Received DEACTIVATION signal. Node is now INACTIVE.")
                 self.is_active = False
+                # 【新增】当节点被停用时，立即发送停止命令
+                self.send_stop_command()
         else:
             rospy.logdebug("FTG_Node: Received redundant enable signal: {}".format(msg.data))
 
