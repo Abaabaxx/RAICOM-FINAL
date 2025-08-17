@@ -5,12 +5,6 @@
     <!-- 基础环境 -->
     <include file="$(find f1)/launch/include/base.launch" />
 
-    <!-- move_base -->
-    <include file="$(find f1)/launch/include/move_base.launch" />
-
-    <!-- 导航管理节点 -->
-    <include file="$(find f1)/launch/include/nav_manager.launch" />
-
     <!-- FTG 节点 -->
     <include file="$(find f1)/launch/include/ftg.launch" /> 
 
