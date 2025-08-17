@@ -4,7 +4,7 @@
 # 该版本为最终比赛使用的FTG算法节点！！！
 # 新新新新新增：：解耦合后的纯FTG算法节点
 # 新新新新增：将FTG消息类型进行封装，一并打包发送给可视化节点
-# 新新新增：添加导航决策器的逻辑，根据当前状态判断是否执行FTG或TEB导航。
+# 新新新增：【已移除】导航决策器逻辑，现在只使用/ftg/enable控制。
 # 新新新增：删除硬编码的转向逻辑（xwc逻辑残留）
 # 新新增：导航仲裁器 (Navigation Arbitrator) 和 指令多路复用器 (Command Multiplexer, Mux) 的方案。将 cmd_vel-->ftg_cml_vel，不直接控制小车
 # 否定了指令多路复用器MUX的方案：最终实测因为mux的方案不支持不相同的消息类型，阿克曼底盘可以由ackermann_msgs/AckermannDriveStamped或者geometry_msgs/Twist速度消息类型控制，但teb发送的和FTG节点发送的数据类型不同，不能多路复用）
@@ -62,10 +62,6 @@ class FollowTheGapNode:
         self.is_active = False
         rospy.loginfo("FTG Node initialized in INACTIVE state for safety.")
         
-        # --- 【原有】初始化导航模式 ---
-        # 默认启动时，假设为FTG模式，直到导航管理器接管
-        self.current_mode = "FTG_MODE"
-        
         # --- 将所有.cfg中的参数定义为类的成员变量 ---
         
         # A_FTG_Core_Algorithm 组
@@ -93,9 +89,6 @@ class FollowTheGapNode:
         self.drive_pub = rospy.Publisher('/Tianracer/ackermann_cmd', AckermannDrive, queue_size=1)
         self.scan_sub = rospy.Subscriber('/Tianracer/scan', LaserScan, self.radar_callback)
 
-        # --- 【原有】订阅导航模式话题 ---
-        self.mode_sub = rospy.Subscriber('/navigation/mode', String, self.mode_callback)
-
         # --- 【新增】订阅外部启停控制话题 ---
         self.enable_sub = rospy.Subscriber('/ftg/enable', Bool, self.enable_callback)
 
@@ -104,7 +97,6 @@ class FollowTheGapNode:
 
         rospy.loginfo("FTG Computation Node has been initialized.")
         rospy.loginfo("Waiting for activation signal on /ftg/enable topic...")
-        rospy.loginfo("Also waiting for mode commands from navigation manager.")
 
     # --- 【新增】外部启停控制的回调函数 ---
     def enable_callback(self, msg):
@@ -125,15 +117,7 @@ class FollowTheGapNode:
         else:
             rospy.logdebug("FTG_Node: Received redundant enable signal: {}".format(msg.data))
 
-    # --- 【原有】导航模式的回调函数 ---
-    def mode_callback(self, msg):
-        """
-        接收来自导航管理器的模式指令，并更新当前状态。
-        """
-        # 避免在模式未改变时重复打印日志
-        if self.current_mode != msg.data:
-            rospy.loginfo("FTG_Node: Received new mode command: {}. Updating status.".format(msg.data))
-            self.current_mode = msg.data
+    # --- 【原有】导航模式的回调函数已移除 ---
 
     def _package_ftg_data(self, header, proc_ranges, proc_ranges_before_bubble, closest_index, gap_start, gap_end, best_point_index):
         """
@@ -461,14 +445,10 @@ class FollowTheGapNode:
             rospy.logdebug("FTG Node is INACTIVE. Ignoring radar data.")
             return
 
-        # --- 【原有】第二层保护：检查导航模式 ---
-        # 如果当前的导航模式不是FTG模式，则立即返回，不执行任何操作。
-        # 这会有效地"暂停"FTG算法。
-        if self.current_mode != "FTG_MODE":
-            rospy.logdebug("Current navigation mode is not FTG_MODE. Ignoring radar data.")
-            return
+        # --- 【原有】第二层保护：检查导航模式（已移除） ---
+        # 现在只由 self.is_active 控制节点的激活状态
 
-        # 如果两个条件都满足，则执行原有的所有逻辑
+        # 如果节点处于激活状态，则执行FTG算法
         self.process_lidar(data)
 
     def run(self):
