@@ -15,15 +15,10 @@
 """
 
 import rospy
-import actionlib
 import math
 import tf  # 【新增】引入tf库
 from std_msgs.msg import String, Bool  # 【新增】导入Bool消息类型
-# 【删除】不再需要导入Odometry
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from geometry_msgs.msg import PoseStamped, Quaternion
-from tf.transformations import quaternion_from_euler
-from std_srvs.srv import Empty  # 【新增】导入Empty服务类型，用于清理代价地图
+from ackermann_msgs.msg import AckermannDrive # 新增：用于直接发送速度指令
 
 # 【新增】导入dynamic_reconfigure相关的库
 from dynamic_reconfigure.server import Server
@@ -47,9 +42,6 @@ class NavigationManager:
         self.current_mode = "FTG_MODE"
         self.active_teb_zone_name = None
         self.teb_zones = []  # 【修改】teb_zones现在由动态配置回调函数管理
-        
-        # 【新增】用于TEB任务超时的计时器
-        self.teb_timeout_timer = None
         
         # 【新增】位置检查定时器，初始为None，只有在系统激活时才会创建
         self.check_pose_timer = None
@@ -76,24 +68,12 @@ class NavigationManager:
         self.ftg_enable_publisher = rospy.Publisher('/ftg/enable', Bool, 
                                                 queue_size=1, latch=True)
         
+        # 新增：创建车辆控制指令发布者
+        self.drive_pub = rospy.Publisher('/Tianracer/ackermann_cmd', AckermannDrive, queue_size=1)
+        
         # 【新增】创建系统总开关订阅者
         self.toggle_sub = rospy.Subscriber('/navigation/toggle_system', Bool, 
                                         self.system_control_callback)
-        
-        # 创建move_base action客户端
-        self.move_base_client = actionlib.SimpleActionClient('Tianracer/move_base', MoveBaseAction)
-        
-        # 等待move_base服务器启动
-        rospy.loginfo("等待move_base服务器...")
-        if self.move_base_client.wait_for_server(timeout=rospy.Duration(30.0)):
-            rospy.loginfo("move_base服务器连接成功")
-        else:
-            rospy.logwarn("move_base服务器连接超时，但节点将继续运行")
-            
-        # 【新增】初始化清理代价地图的服务客户端
-        self.clear_costmaps_service_name = 'Tianracer/move_base/clear_costmaps'
-        self.clear_costmaps_client = rospy.ServiceProxy(self.clear_costmaps_service_name, Empty)
-        rospy.loginfo("已创建清理代价地图的服务客户端，服务名称: %s", self.clear_costmaps_service_name)
         
         # 发布初始状态
         self.publish_mode(self.current_mode)
@@ -172,15 +152,24 @@ class NavigationManager:
         self.current_x = trans[0]
         self.current_y = trans[1]
                 
-        if self.current_mode == "FTG_MODE":
-            # 检查是否进入了任何一个可以触发TEB的区域
-            zone_found = self.check_if_in_any_zone(self.current_x, self.current_y)
-            
-            if zone_found is not None:
-                # 机器人刚从FTG区域进入TEB区域，触发切换
+        zone_found = self.check_if_in_any_zone(self.current_x, self.current_y)
+
+        if zone_found is not None:
+            # 机器人进入TEB区域
+            if self.current_mode != "TEB_MODE":
                 rospy.loginfo("机器人进入 {} 区域 (位置: {:.2f}, {:.2f})，切换到TEB模式".format(
                     zone_found['name'], self.current_x, self.current_y))
-                self.switch_to_teb_mode(zone_found)
+                self.current_mode = "TEB_MODE"
+                self.active_teb_zone_name = zone_found["name"]
+                self.publish_mode(self.current_mode)
+            
+            # 持续发布直行指令
+            self.publish_control_command(1.0, 0.0)
+
+        else:
+            # 机器人不在任何TEB区域内
+            if self.current_mode != "FTG_MODE":
+                self.switch_to_ftg_mode("已离开TEB区域")
 
     def check_if_in_any_zone(self, x, y):
         """
@@ -203,106 +192,8 @@ class NavigationManager:
             
             # 如果距离的平方小于等于半径的平方，则点在圆内
             if dist_sq <= radius_sq:
-                # 防止在同一区域重复触发
-                if zone["name"] != self.active_teb_zone_name:
-                    return zone
+                return zone
         return None
-
-    def switch_to_teb_mode(self, zone_info):
-        """
-        切换到TEB模式，并启动一个1秒的超时计时器。
-        
-        Args:
-            zone_info (dict): 区域信息字典
-        """
-        # 更新内部状态
-        self.current_mode = "TEB_MODE"
-        self.active_teb_zone_name = zone_info["name"]
-        
-        # 公告新状态
-        self.publish_mode(self.current_mode)
-        
-        # 准备并发送导航目标给move_base
-        goal = MoveBaseGoal()
-        goal.target_pose.header.frame_id = "Tianracer/map"
-        goal.target_pose.header.stamp = rospy.Time.now()
-        
-        # 设置目标位置
-        goal.target_pose.pose.position.x = zone_info["goal"]["x"]
-        goal.target_pose.pose.position.y = zone_info["goal"]["y"]
-        goal.target_pose.pose.position.z = 0.0
-        
-        # 转换yaw角度为四元数
-        quat = quaternion_from_euler(0, 0, zone_info["goal"]["yaw"])
-        goal.target_pose.pose.orientation = Quaternion(*quat)
-        
-        # 发送目标，并指定任务完成后的回调函数
-        rospy.loginfo("发送TEB导航目标到 ({:.2f}, {:.2f}, {:.1f}°)".format(
-            zone_info['goal']['x'],
-            zone_info['goal']['y'],
-            math.degrees(zone_info['goal']['yaw'])
-        ))
-        
-        self.move_base_client.send_goal(goal, done_cb=self.on_teb_goal_done)
-        
-        # 【【【核心新增：启动超时计时器】】】
-        # 创建一个1秒后触发一次的Timer
-        # oneshot=True 表示它只触发一次，然后自动停止
-        rospy.loginfo("启动1秒导航超时计时器...")
-        self.teb_timeout_timer = rospy.Timer(rospy.Duration(0.2), 
-                                             self.on_teb_timeout, 
-                                             oneshot=True)
-
-    # 【【【核心新增：超时回调函数】】】
-    def on_teb_timeout(self, event):
-        """
-        TEB导航任务超时后调用的函数。
-        """
-        # 检查是否仍处于TEB模式，防止在模式切换的瞬间发生冲突
-        if self.current_mode == "TEB_MODE":
-            rospy.logwarn("TEB导航任务 '{}' 超时 (超过1秒)!".format(self.active_teb_zone_name))
-            
-            # 首先，取消move_base的当前目标，让机器人停下来
-            self.cancel_all_move_base_goals()
-            
-            # 【新增】清理代价地图，消除可能导致超时的"幻影"障碍物
-            self.clear_costmaps()
-            
-            # 然后，切换回FTG模式。这里我们将其视为"成功"，按你的要求
-            # 你也可以修改原因字符串，比如 "TEB任务超时"
-            self.switch_to_ftg_mode("TEB任务超时，视为成功并切换")
-
-    def on_teb_goal_done(self, status, result):
-        """
-        move_base任务完成的回调函数
-        
-        Args:
-            status: 目标状态
-            result: 执行结果
-        """
-        # 【【【核心修改：关闭超时计时器】】】
-        # 任务已经结束（无论成功失败），必须关闭计时器，防止它稍后触发
-        if self.teb_timeout_timer:
-            self.teb_timeout_timer.shutdown()
-            self.teb_timeout_timer = None
-            rospy.logdebug("TEB任务正常结束，已关闭超时计时器。")
-
-        from actionlib_msgs.msg import GoalStatus
-        
-        if status == GoalStatus.SUCCEEDED:
-            rospy.loginfo("TEB任务 {} 成功完成".format(self.active_teb_zone_name))
-            rospy.loginfo("[SUCCESS] TEB导航成功，即将切换回FTG模式。")
-        elif status == GoalStatus.PREEMPTED:
-            rospy.logwarn("TEB任务 {} 被取消".format(self.active_teb_zone_name))
-        elif status == GoalStatus.ABORTED:
-            rospy.logerr("TEB任务 {} 执行失败".format(self.active_teb_zone_name))
-            # 【新增】在TEB导航失败时清理代价地图，尝试恢复系统状态
-            self.clear_costmaps()
-        else:
-            rospy.logwarn("TEB任务 {} 结束，状态: {}".format(self.active_teb_zone_name, status))
-        
-        # 无论成功还是失败，都切换回FTG模式
-        self.switch_to_ftg_mode("TEB任务结束")
 
     def switch_to_ftg_mode(self, reason):
         """
@@ -325,37 +216,6 @@ class NavigationManager:
         self.publish_mode(self.current_mode)
         rospy.loginfo("切换回FTG模式。原因: {}".format(reason))
 
-    def cancel_all_move_base_goals(self):
-        """取消所有move_base目标"""
-        if self.move_base_client.get_state() in [actionlib.GoalStatus.PENDING, 
-                                                actionlib.GoalStatus.ACTIVE]:
-            rospy.loginfo("取消当前move_base目标")
-            self.move_base_client.cancel_all_goals()
-    
-    def clear_costmaps(self):
-        """
-        清理move_base的局部代价地图
-        
-        这个方法会调用move_base提供的clear_costmaps服务，清除代价地图中的障碍物信息。
-        主要用于：
-        1. 系统关闭时，确保下次启动有一个干净的环境
-        2. TEB导航超时时，清除可能导致超时的"幻影"障碍物
-        3. TEB导航失败时，尝试恢复系统状态
-        """
-        try:
-            # 等待服务可用，设置较短的超时时间。如果超时，会抛出ROSException
-            rospy.wait_for_service(self.clear_costmaps_service_name, timeout=1.0)
-            
-            # 调用服务
-            self.clear_costmaps_client()
-            rospy.loginfo("成功调用清理代价地图服务")
-            
-        except rospy.ROSException as e:
-            # 这个异常会在wait_for_service超时时抛出
-            rospy.logwarn("等待清理代价地图服务'%s'超时: %s", self.clear_costmaps_service_name, e)
-        except rospy.ServiceException as e:
-            rospy.logerr("调用清理代价地图服务'%s'失败: %s", self.clear_costmaps_service_name, e)
-
     def publish_mode(self, mode):
         """
         发布导航模式
@@ -368,6 +228,13 @@ class NavigationManager:
         self.mode_publisher.publish(mode_msg)
         rospy.logdebug("发布导航模式: {}".format(mode))
 
+    def publish_control_command(self, speed, steering_angle):
+        """创建并发布阿克曼驱动消息。"""
+        drive_msg = AckermannDrive()
+        drive_msg.steering_angle = steering_angle
+        drive_msg.speed = speed
+        self.drive_pub.publish(drive_msg)
+        
     # 【新增】系统总开关的回调函数
     def system_control_callback(self, msg):
         """
@@ -423,11 +290,8 @@ class NavigationManager:
         ftg_msg.data = False
         self.ftg_enable_publisher.publish(ftg_msg)
         
-        # 取消所有move_base目标
-        self.cancel_all_move_base_goals()
-        
-        # 【新增】清理代价地图，确保下次启动时有干净的环境
-        self.clear_costmaps()
+        # 发送停车指令
+        self.publish_control_command(0.0, 0.0)
         
         # 停止位置检查定时器
         if self.check_pose_timer is not None:
@@ -437,11 +301,6 @@ class NavigationManager:
         # 重置内部状态
         self.current_mode = "FTG_MODE"  # 默认模式
         self.active_teb_zone_name = None
-        
-        # 如果有超时计时器，也停止它
-        if self.teb_timeout_timer is not None:
-            self.teb_timeout_timer.shutdown()
-            self.teb_timeout_timer = None
             
         rospy.loginfo("导航系统已停止并重置，等待下次激活...")
         
@@ -453,7 +312,7 @@ class NavigationManager:
             "active_zone": self.active_teb_zone_name,
             "current_position": (self.current_x, self.current_y),
             "total_zones": len(self.teb_zones),
-            "has_active_timer": self.teb_timeout_timer is not None
+            "has_active_timer": False # 删除了计时器
         }
 
     def run(self):
@@ -469,11 +328,8 @@ class NavigationManager:
             rospy.loginfo("导航管理器节点关闭")
         finally:
             status_timer.shutdown()
-            # 【新增】清理超时计时器
-            if self.teb_timeout_timer:
-                self.teb_timeout_timer.shutdown()
             # 【新增】清理位姿检查定时器
-            if hasattr(self, 'check_pose_timer'):
+            if hasattr(self, 'check_pose_timer') and self.check_pose_timer:
                 self.check_pose_timer.shutdown()
 
     def print_status(self, event):
