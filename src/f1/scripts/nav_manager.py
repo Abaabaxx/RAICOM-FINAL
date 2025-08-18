@@ -83,6 +83,9 @@ class NavigationManager:
         # 当前机器人位置（用于调试和日志）
         self.current_x = 0.0
         self.current_y = 0.0
+        
+        # TEB区域直行速度
+        self.teb_zone_straight_speed = 1.0  # 默认速度为1.0 m/s
 
     # 【【【核心新增：Dynamic Reconfigure的回调函数】】】
     def dynamic_reconfigure_callback(self, config, level):
@@ -125,7 +128,11 @@ class NavigationManager:
 
         # 原子性地更新区域列表，防止在检查时列表被修改
         self.teb_zones = new_zones
-        rospy.loginfo("配置更新完成，当前已启用 {} 个TEB区域。".format(len(self.teb_zones)))
+        
+        # 更新直行速度
+        self.teb_zone_straight_speed = config.teb_zone_straight_speed
+        rospy.loginfo("配置更新完成，当前已启用 {} 个TEB区域，直行速度设置为 {:.2f} m/s。".format(
+            len(self.teb_zones), self.teb_zone_straight_speed))
         
         # 必须返回config对象
         return config
@@ -163,8 +170,8 @@ class NavigationManager:
                 self.active_teb_zone_name = zone_found["name"]
                 self.publish_mode(self.current_mode)
             
-            # 持续发布直行指令
-            self.publish_control_command(1.0, 0.0)
+            # 持续发布直行指令，使用动态配置的速度值
+            self.publish_control_command(self.teb_zone_straight_speed, 0.0)
 
         else:
             # 机器人不在任何TEB区域内
