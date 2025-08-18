@@ -249,7 +249,7 @@ class NavigationManager:
         # 创建一个7秒后触发一次的Timer
         # oneshot=True 表示它只触发一次，然后自动停止
         rospy.loginfo("启动7秒导航超时计时器...")
-        self.teb_timeout_timer = rospy.Timer(rospy.Duration(7.0), 
+        self.teb_timeout_timer = rospy.Timer(rospy.Duration(20.0), 
                                              self.on_teb_timeout, 
                                              oneshot=True)
 
