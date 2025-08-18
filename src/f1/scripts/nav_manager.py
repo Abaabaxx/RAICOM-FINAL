@@ -210,7 +210,7 @@ class NavigationManager:
 
     def switch_to_teb_mode(self, zone_info):
         """
-        切换到TEB模式，并启动一个1秒的超时计时器。
+        切换到TEB模式，并启动一个0.2秒的超时计时器。
         
         Args:
             zone_info (dict): 区域信息字典
@@ -246,9 +246,9 @@ class NavigationManager:
         self.move_base_client.send_goal(goal, done_cb=self.on_teb_goal_done)
         
         # 【【【核心新增：启动超时计时器】】】
-        # 创建一个1秒后触发一次的Timer
+        # 创建一个0.2秒后触发一次的Timer
         # oneshot=True 表示它只触发一次，然后自动停止
-        rospy.loginfo("启动1秒导航超时计时器...")
+        rospy.loginfo("启动0.2秒导航超时计时器...")
         self.teb_timeout_timer = rospy.Timer(rospy.Duration(0.2), 
                                              self.on_teb_timeout, 
                                              oneshot=True)
