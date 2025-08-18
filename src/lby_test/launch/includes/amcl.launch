@@ -10,9 +10,9 @@
 <launch>
     <arg name="robot_name" default="$(optenv TIANRACER_NAME tianracer)" doc="robot name [tianracer_No1, tianracer_No2, tianracer_No3, ...]"/>    
     <!-- for amcl -->
-    <arg name="init_x" default="0.0" />
-    <arg name="init_y" default="0.0" />
-    <arg name="init_a" default="0.0" />
+    <arg name="init_x" default="6.969485759735107" />
+    <arg name="init_y" default="2.076488494873047" />
+    <arg name="init_a" default="0.0668922579543" />
     <arg name="base" default="$(optenv TIANRACER_BASE compact)" />
 
     <!-- Define various frame and topic IDs with default values -->
