@@ -210,7 +210,7 @@ class NavigationManager:
 
     def switch_to_teb_mode(self, zone_info):
         """
-        切换到TEB模式，并启动一个7秒的超时计时器。
+        切换到TEB模式，并启动一个1秒的超时计时器。
         
         Args:
             zone_info (dict): 区域信息字典
@@ -246,10 +246,10 @@ class NavigationManager:
         self.move_base_client.send_goal(goal, done_cb=self.on_teb_goal_done)
         
         # 【【【核心新增：启动超时计时器】】】
-        # 创建一个7秒后触发一次的Timer
+        # 创建一个1秒后触发一次的Timer
         # oneshot=True 表示它只触发一次，然后自动停止
-        rospy.loginfo("启动7秒导航超时计时器...")
-        self.teb_timeout_timer = rospy.Timer(rospy.Duration(20.0), 
+        rospy.loginfo("启动1秒导航超时计时器...")
+        self.teb_timeout_timer = rospy.Timer(rospy.Duration(0.2), 
                                              self.on_teb_timeout, 
                                              oneshot=True)
 
@@ -260,7 +260,7 @@ class NavigationManager:
         """
         # 检查是否仍处于TEB模式，防止在模式切换的瞬间发生冲突
         if self.current_mode == "TEB_MODE":
-            rospy.logwarn("TEB导航任务 '{}' 超时 (超过7秒)!".format(self.active_teb_zone_name))
+            rospy.logwarn("TEB导航任务 '{}' 超时 (超过1秒)!".format(self.active_teb_zone_name))
             
             # 首先，取消move_base的当前目标，让机器人停下来
             self.cancel_all_move_base_goals()
@@ -291,6 +291,7 @@ class NavigationManager:
         
         if status == GoalStatus.SUCCEEDED:
             rospy.loginfo("TEB任务 {} 成功完成".format(self.active_teb_zone_name))
+            rospy.loginfo("[SUCCESS] TEB导航成功，即将切换回FTG模式。")
         elif status == GoalStatus.PREEMPTED:
             rospy.logwarn("TEB任务 {} 被取消".format(self.active_teb_zone_name))
         elif status == GoalStatus.ABORTED:
@@ -460,7 +461,7 @@ class NavigationManager:
         rospy.loginfo("导航管理器正在运行...")
         
         # 创建定时器，定期输出状态信息（可选）
-        status_timer = rospy.Timer(rospy.Duration(10.0), self.print_status)
+        status_timer = rospy.Timer(rospy.Duration(1.0), self.print_status)
         
         try:
             rospy.spin()
