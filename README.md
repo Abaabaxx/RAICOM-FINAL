@@ -7,11 +7,11 @@
 在 RAICOM ROS 虚实挑战赛（轮式）中，本项目方案荣获 **全国一等奖**。
 
 <p align="center">
-  <img src="assets/全国一等奖奖牌.jpg" alt="全国总决赛成绩" width="300">
+  <img src="assets/全国一等奖奖状.png" alt="全国总决赛成绩" width="60%">
 </p>
 
 <p align="center">
-  <img src="assets/合照.jpg" alt="比赛合照" width="300">
+  <img src="assets/合照.jpg" alt="比赛合照" width="60%">
 </p>
 
 > **一些碎碎念：**
@@ -22,11 +22,14 @@
 
 ### 🏁全国预选赛
 
-<img src="assets/全国预选赛.gif" width="50%">
+<p align="center">
+<img src="assets/全国预选赛.gif" width="80%">
+</p>
 
 ### 🏆全国总决赛
-
+<p align="center">
 <img src="assets/全国总决赛.gif" width="50%">
+</p>
 
 ## 🚀 核心算法
 本项目的核心策略是 **Follow-the-Gap (FTG) 算法与传统导航相结合**。理想方案旨在利用 FTG 算法在直道上实现高速行驶，并在弯道等复杂路段切换至导航模式（Move Base + TEB）以保证稳定过弯。
